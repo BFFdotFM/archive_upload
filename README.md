@@ -41,9 +41,12 @@ To run:
 3. Schedule
   - In Linux:
 > crontab -e
+
 (select an editor, if needed, if you aren't sure, select nano)
 Add the following line:
+
 > 15,45 * * * * /home/pi/archive_upload/archive_upload.sh
+
 You may have to modify the line to include the correct path to the installation folder and script.
 
 You can either add a scheduled task to windows, or just execute the script - it will attempt to run 15 minutes past the hour and half hour mark.
