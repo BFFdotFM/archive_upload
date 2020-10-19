@@ -1,0 +1,15 @@
+# Configuration parameters for python-sync app for Creek.fm stations
+audio_folder: "/home/pi/audio/"
+station_url: "https://bff.fm/"
+creek_key: ""
+
+# logging information
+log_level: "DEBUG"
+log_path: "."
+log_name: "archive_upload"
+
+# S3 details
+s3_endpoint: ""
+s3_bucket_name: ""
+s3_access_key_id: ""
+s3_secret: ""
