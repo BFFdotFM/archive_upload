@@ -18,6 +18,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 # connecting to the website - get next show
 import urllib.request
+from urllib.parse import urlencode
 
 #upload files to s3
 import boto3
@@ -76,6 +77,7 @@ def upload_files():
         show_name = broadcast['program_title']
         title = broadcast['broadcast_title']
         logger.info("Missing a recording for " + show_name + ", episode: " + title)
+        local_filename = broadcast['media_basename']
 
         # match missing recordings to local recordings
         start_time = broadcast['broadcast_start']
@@ -86,24 +88,27 @@ def upload_files():
         date = start_time[0:10] #first 10 characters should be the date
         logger.debug("date: " + date)
 
-        start_hour = start_time[11:13]
-        logger.debug("starting hour: " + start_hour)
-        start_min = start_time[14:16]
-        logger.debug("starting minute: " + start_min)
+        start_hour = int(start_time[11:13])
+        logger.debug("starting hour: " + str(start_hour))
+        start_min = int(start_time[14:16])
+        logger.debug("starting minute: " + str(start_min))
 
         # broadcast_end: "2020-10-15 12:00:00"
-        end_hour = end_time[11:13]
-        logger.debug("ending hour: " + end_hour)
-        end_min = end_time[14:16]
-        logger.debug("starting minute: " + end_min)
-        
-        # total seconds of broadcast
-        time1 = datetime.datetime.strptime(broadcast_start, "%Y-%m-%d %H:%M:%S")
-        time2 = datetime.datetime.strptime(broadcast_end, "%Y-%m-%d %H:%M:%S")
+        end_hour = int(end_time[11:13])
+        logger.debug("ending hour: " + str(end_hour))
+        end_min = int(end_time[14:16])
+        logger.debug("starting minute: " + str(end_min))
 
-        broadcast_seconds = datetime.timedelta(time2 - time1).total_seconds()
+        # total seconds of broadcast
+        time1 = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
+        time2 = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
+
+
+        broadcast_seconds = (time2 - time1).total_seconds()
+        logger.debug("broadcast is " + str(broadcast_seconds) + " seconds long")
         short_broadcast_seconds = broadcast_seconds - 900
         long_broadcast_seconds = broadcast_seconds + 900
+        logger.debug("shortest acceptable recording is " + str(short_broadcast_seconds) + " seconds and longest is " + str(long_broadcast_seconds))
 
         #if we can find a stream recording that matches
         #get files from that day, should be less than 50
@@ -113,29 +118,31 @@ def upload_files():
         logger.debug("found files: ")
         logger.debug(file_names)
 
-        if len(file_names) >= 0: #found some stream recordings
+        if len(file_names) > 0: #found some stream recordings
             #we have some stream recordings to check
             file_names.sort() #lex sort gives us time based sort
             file_list = "" #initialize matching files
             for file_name in file_names:
                 # stream_recording-2020-10-13_21-08-38.mp3
                 logger.debug("checking " + file_name)
-                hour = file_name[-12:-10]
-                logger.debug("hour: " + hour)
-                minutes = file_name[-9:-7]
-                logger.debug("minutes: " + minutes)
-                
+                hour = int(file_name[-12:-10])
+                logger.debug("hour: " + str(hour))
+                minutes = int(file_name[-9:-7])
+                logger.debug("minutes: " + str(minutes))
+
                 # check starting times
                 min_minus_ten = start_min - 10
                 min_plus_ten = start_min + 10
                 if (start_hour, min_minus_ten) <= (hour,minutes) <= (start_hour, min_plus_ten):
                     audio = MP3(file_name) # read in MP3
                     file_seconds = audio.info.length #get length of audio in seconds
+                    logger.debug("file is " + str(file_seconds) + " seconds long")
                     if (short_broadcast_seconds <= file_seconds <= long_broadcast_seconds):
-                        shutil.copy2(file_name, local_file) #copy stream recording to new file name
+                        logger.info("File : " + file_name + " is the file we are looking for, copying to " + local_filename)
+                        shutil.copy2(file_name, local_filename) #copy stream recording to new file name
                         break
 
-        else: # no stream recordings, check for timed recordings
+        if not os.path.exists(local_filename): # no stream recordings, check for timed recordings
             #get files from that day, should be less than 50
             file_pattern = audio_folder + "timed-recording*" + date + "*"
             logger.debug("looking for files matching: " + file_pattern)
@@ -153,14 +160,17 @@ def upload_files():
             for file_name in file_names:
                 # timed-recording-2020-10-15_14-00-01.mp3
                 logger.debug("checking " + file_name)
-                hour = file_name[-12:-10]
+                hour = int(file_name[-12:-10])
                 logger.debug("hour: " + hour)
-                minutes = file_name[-9:-7]
+                minutes = int(file_name[-9:-7])
                 logger.debug("minutes: " + minutes)
-
                 if (start_hour, start_min) <= (hour, minutes) < (end_hour, end_min):
                     logger.debug("found a file to add: " + file_name)
                     file_list += "file '" + file_name + "'\n"
+
+            if len(file_list) < 1:
+                logger.error("Error: No Recordings match.")
+                continue # drop out of this broadcast
 
             # construct full show from segments
             logger.debug("files to process:")
@@ -168,7 +178,6 @@ def upload_files():
             logger.debug("writing file list to disk")
             with open("files.txt", "w") as text_file:
                 text_file.write(file_list)
-            local_filename = broadcast['media_basename']
             logger.debug("local filename: " + local_filename)
             logger.debug("writing complete file to disk")
 
@@ -206,9 +215,12 @@ def upload_files():
             tags.save(filename=local_filename,
                       v1=ID3v1SaveOptions.CREATE,
                       v2_version=4)
+        else:
+            # we didn't make a file, nothing else to do for this broadcast
+            continue
 
         # Upload file to S3
-        logger.debug("Uploading file to S3")
+        logger.debug("Opening connection to S3")
 
         session = boto3.session.Session()
         client = session.client('s3',
@@ -216,9 +228,11 @@ def upload_files():
                         aws_access_key_id=s3_access_key_id,
                         aws_secret_access_key=s3_secret)
 
-        client.upload_file(local_file,  # Path to local file
+        logger.debug("Uploading file")
+        client.upload_file(local_filename,  # Path to local file
                    s3_bucket_name,  # Name of Space
                    broadcast['s3_object_name'])  # Name for remote file
+        logger.debug("Upload complete")
 
         # set file to public
         logger.debug("Setting file to public access")
@@ -235,20 +249,23 @@ def upload_files():
         broadcast['_uploadDone'] = False
         broadcast['_audioFilesFound'] = None
         broadcast['_uploadPercent'] = None
-        broadcast['filesize'] = os.path.getsize(local_file)
+        broadcast['filesize'] = os.path.getsize(local_filename)
         broadcast['file_format'] = 'mp3'
 
-        logger.debug("ready to post to creek, broadcast: " + broadcast)
+        logger.debug("ready to post to creek, broadcast: ")
+        logger.debug(broadcast)
 
-        data = parse.urlencode(broadcast).encode()
-        req =  request.Request(full_archive_url, data=data) # this will "POST"
-        resp = request.urlopen(req)
+        data = urlencode(broadcast).encode()
+        req = urllib.request.Request(full_archive_url, data=data) # this will "POST"
+        resp = urllib.request.urlopen(req)
+        logger.debug("Finished posting, response:")
+        logger.debug(resp)
 
     # all broadcasts processed
 
     # delete archives, if needed
-    logger.info("Removing temporary file: " + local_file)
-    os.remove(local_file)
+    logger.info("Removing temporary file: " + local_filename)
+    os.remove(local_filename)
 
     # remove files older than 3 months
     for dirpath, dirnames, filenames in os.walk(audio_folder):
@@ -301,7 +318,7 @@ if __name__ == '__main__':
     # background scheduler is part of apscheduler class
     scheduler = BackgroundScheduler()
     # add a cron based (clock) scheduler for every 10 minutes, 40 minutes past
-    scheduler.add_job(upload_files, 'cron', minute='15,45')
+    scheduler.add_job(upload_files, 'cron', minute='10,40')
     scheduler.start()
 
     logger.info('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
