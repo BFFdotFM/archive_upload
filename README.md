@@ -31,6 +31,7 @@ The following python libraries are required:
 
 To install:
 > sudo pip3 install glob3 apscheduler urllib3 boto3 pyyaml mutagen
+
 The other packages should all come with the base python3 install
 
 To run: 
