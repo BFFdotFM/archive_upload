@@ -38,9 +38,12 @@ To run:
 ------
 1. Edit the archive_upload.yml file with the correct values for your installation
 2. Test by running once:
-> python3 archive_upload.py
+
+> python3 archive_upload.py now
+
 3. Schedule
   - In Linux:
+ 
 > crontab -e
 
 (select an editor, if needed, if you aren't sure, select nano)
