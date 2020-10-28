@@ -236,9 +236,9 @@ def upload_files():
 
         # set file to public
         logger.debug("Setting file to public access")
-        s3 = boto3.resource('s3')
-        object_acl = s3.ObjectAcl(s3_bucket_name,broadcast['s3_object_name'])
-        response = object_acl.put(ACL='public-read')
+        response = client.put_object_acl(ACL='public-read', #ACL level
+			Bucket=s3_bucket_name, # Bucket/name of space
+			Key=broadcast['s3_object_name']) #name for remote file
 
         # Update creek
         archive_url = "api/media/add_archive?key="
@@ -259,20 +259,26 @@ def upload_files():
         req = urllib.request.Request(full_archive_url, data=data) # this will "POST"
         resp = urllib.request.urlopen(req)
         logger.debug("Finished posting, response:")
-        logger.debug(resp)
+        logger.debug(resp.status)
+        
+        # delete archives, if needed
+        if os.path.exists(local_filename):
+            logger.info("Removing temporary file: " + local_filename)
+            os.remove(local_filename)
 
     # all broadcasts processed
 
-    # delete archives, if needed
-    logger.info("Removing temporary file: " + local_filename)
-    os.remove(local_filename)
-
     # remove files older than 3 months
+    old_date = datetime.datetime.now() - datetime.timedelta(days=90)
+    logger.debug("90 days ago was:")
+    logger.debug(old_date)
     for dirpath, dirnames, filenames in os.walk(audio_folder):
        for file in filenames:
           curpath = os.path.join(dirpath, file)
           file_modified = datetime.datetime.fromtimestamp(os.path.getmtime(curpath))
-          if datetime.datetime.now() - file_modified > datetime.timedelta(months=3):
+          logger.debug("file was modified:")
+          logger.debug(file_modified)
+          if old_date < file_modified:
                 logger.info("Removing file older than 3 months: " + curpath)
                 os.remove(curpath)
 
