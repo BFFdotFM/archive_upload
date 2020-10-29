@@ -100,11 +100,10 @@ def upload_files():
         logger.debug("starting minute: " + str(end_min))
 
         # total seconds of broadcast
-        time1 = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
-        time2 = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
+        time_start = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
+        time_end = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
 
-
-        broadcast_seconds = (time2 - time1).total_seconds()
+        broadcast_seconds = (time_end - time_start).total_seconds()
         logger.debug("broadcast is " + str(broadcast_seconds) + " seconds long")
         short_broadcast_seconds = broadcast_seconds - 900
         long_broadcast_seconds = broadcast_seconds + 900
@@ -125,15 +124,21 @@ def upload_files():
             for file_name in file_names:
                 # stream_recording-2020-10-13_21-08-38.mp3
                 logger.debug("checking " + file_name)
-                hour = int(file_name[-12:-10])
-                logger.debug("hour: " + str(hour))
-                minutes = int(file_name[-9:-7])
-                logger.debug("minutes: " + str(minutes))
+                time_string = file_name[-23:-4]
+                logger.debug("file timestamp: " + time_string)
+                time_record = datetime.datetime.strptime(time_string, "%Y-%m-%d_%H-%M-%S")
 
+                # check to see if the file has any data
+                if os.path.getsize(file_name) <= 0:
+                  logger.error("file " + file_name + " is zero bytes!  deleting.")
+                  os.remove(file_name)
+                  logger.debug("trying next file")
+                  continue
+                
                 # check starting times
-                min_minus_ten = start_min - 10
-                min_plus_ten = start_min + 10
-                if (start_hour, min_minus_ten) <= (hour,minutes) <= (start_hour, min_plus_ten):
+                min_minus_ten = time_record - datetime.timedelta(minutes=10)
+                min_plus_ten = time_record + datetime.timedelta(minutes=10)
+                if(min_minus_ten <= time_start <= min_plus_ten):
                     audio = MP3(file_name) # read in MP3
                     file_seconds = audio.info.length #get length of audio in seconds
                     logger.debug("file is " + str(file_seconds) + " seconds long")
@@ -278,7 +283,7 @@ def upload_files():
           file_modified = datetime.datetime.fromtimestamp(os.path.getmtime(curpath))
           logger.debug("file was modified:")
           logger.debug(file_modified)
-          if old_date < file_modified:
+          if old_date > file_modified:
                 logger.info("Removing file older than 3 months: " + curpath)
                 os.remove(curpath)
 
@@ -290,7 +295,7 @@ if __name__ == '__main__':
     # MAIN PROCESS
 
     with open('archive_upload.yml', 'r') as f:
-        config = yaml.load(f)
+        config = yaml.load(f, Loader=yaml.BaseLoader)
 
     # prep logging system
     log_path = config["log_path"]
