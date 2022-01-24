@@ -2,6 +2,8 @@
 audio_folder: "/home/pi/audio/"
 station_url: "https://bff.fm/"
 creek_key: ""
+# Enable 'studio' key to filter broadcasts by broadcast location
+# studio: "studioa"
 
 # logging information
 log_level: "DEBUG"

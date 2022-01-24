@@ -54,6 +54,12 @@ def upload_files():
     audio_folder = config["audio_folder"]
     station_url = config["station_url"]
     creek_key = config["creek_key"]
+
+    if "studio" in config.keys():
+        studio_filter = config['studio']
+    else:
+        studio_filter = False
+
     s3_bucket_name = config['s3_bucket_name']
     s3_access_key_id = config['s3_access_key_id']
     s3_secret = config['s3_secret']
@@ -72,10 +78,24 @@ def upload_files():
     logger.debug(broadcasts)
 
     for broadcast in broadcasts['data']['broadcasts']: # Each missing broadcast
+
+
         logger.debug("Working on a broadcast: ")
         logger.debug(broadcast)
         show_name = broadcast['program_title']
         title = broadcast['broadcast_title']
+        # If a studio_filter is connfigured (add 'studio: studioa' key to config)
+        # and this broadcast does not specifiy the same studio, skip it.
+        if studio_filter and ("broadcast_location" in broadcast.keys()):
+            if not broadcast['broadcast_location'] == studio_filter:
+                logger.info("Skipping broadcast \"{}: {}\". Recorded in `{}`. Only processing `{}`".format(
+                    show_name,
+                    title,
+                    broadcast['broadcast_location'],
+                    studio_filter
+                ))
+                continue
+
         logger.info("Missing a recording for " + show_name + ", episode: " + title)
         local_filename = broadcast['media_basename']
 
