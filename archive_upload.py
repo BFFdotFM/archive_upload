@@ -55,6 +55,16 @@ def upload_files():
     station_url = config["station_url"]
     creek_key = config["creek_key"]
 
+    if "stream_rec_prefix" in config.keys():
+        stream_rec_prefix = config['stream_rec_prefix']
+    else:
+        stream_rec_prefix = "stream_recording"
+
+    if "timed_rec_prefix" in config.keys():
+        timed_rec_prefix = config['timed_rec_prefix']
+    else:
+        timed_rec_prefix = "timed-recording"
+
     if "studio" in config.keys():
         studio_filter = config['studio']
     else:
@@ -131,7 +141,7 @@ def upload_files():
 
         #if we can find a stream recording that matches
         #get files from that day, should be less than 50
-        file_pattern = audio_folder + "stream_recording*" + date + "*"
+        file_pattern = audio_folder + stream_rec_prefix + "*" + date + "*"
         logger.debug("looking for files matching: " + file_pattern)
         file_names = glob.glob(file_pattern) # find matching files
         logger.debug("found files: ")
@@ -169,7 +179,7 @@ def upload_files():
 
         if not os.path.exists(local_filename): # no stream recordings, check for timed recordings
             #get files from that day, should be less than 50
-            file_pattern = audio_folder + "timed-recording*" + date + "*"
+            file_pattern = audio_folder + timed_rec_prefix + "*" + date + "*"
             logger.debug("looking for files matching: " + file_pattern)
             file_names = glob.glob(file_pattern) # find matching files
             logger.debug("found files: ")
@@ -186,9 +196,9 @@ def upload_files():
                 # timed-recording-2020-10-15_14-00-01.mp3
                 logger.debug("checking " + file_name)
                 hour = int(file_name[-12:-10])
-                logger.debug("hour: " + hour)
+                logger.debug("hour: " + str(hour))
                 minutes = int(file_name[-9:-7])
-                logger.debug("minutes: " + minutes)
+                logger.debug("minutes: " + str(minutes))
                 if (start_hour, start_min) <= (hour, minutes) < (end_hour, end_min):
                     logger.debug("found a file to add: " + file_name)
                     file_list += "file '" + file_name + "'\n"
@@ -322,6 +332,11 @@ if __name__ == '__main__':
     log_file_name = config["log_name"]
     log_level = config["log_level"]
 
+    if "time_key" in config.keys():
+        time_key = config['time_key']
+    else:
+        time_key = "10, 40"
+
     log_format = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
     logger = logging.getLogger()
     logger.setLevel(log_level)
@@ -349,7 +364,7 @@ if __name__ == '__main__':
     # background scheduler is part of apscheduler class
     scheduler = BackgroundScheduler()
     # add a cron based (clock) scheduler for every 10 minutes, 40 minutes past
-    scheduler.add_job(upload_files, 'cron', minute='10,40')
+    scheduler.add_job(upload_files, 'cron', minute= time_key)
     scheduler.start()
 
     logger.info('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
