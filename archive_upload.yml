@@ -1,9 +1,19 @@
 # Configuration parameters for python-sync app for Creek.fm stations
+
+#audio storage folder.  Use full paths, including trailing slash.  Do not use windows style slashes, even on windows - C:/audio/archive/
 audio_folder: "/home/pi/audio/"
+# filename prefix for manually initiated recordings
+stream_rec_prefix: "stream_recording"
+#filename prefix for automatic recordings
+timed_rec_prefix: "timed-recording"
+# creek API root URL
 station_url: "https://bff.fm/"
+# creek API key
 creek_key: ""
 # Enable 'studio' key to filter broadcasts by broadcast location
 # studio: "studioa"
+# time key for program initiation, cron style, e.g. 10, 40 will play at 10 minutes past the hour and 40 minutes past the hour
+time_key: "10, 40"
 
 # logging information
 log_level: "DEBUG"
