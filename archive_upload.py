@@ -125,9 +125,13 @@ def upload_files():
 
         # broadcast_end: "2020-10-15 12:00:00"
         end_hour = int(end_time[11:13])
+	# fix for shows ending at midnight
+	if (end_hour == 0):
+	    logger.debug("shifting end hour 0 to end hour 24")
+            end_hour = 24
         logger.debug("ending hour: " + str(end_hour))
         end_min = int(end_time[14:16])
-        logger.debug("starting minute: " + str(end_min))
+        logger.debug("ending minute: " + str(end_min))
 
         # total seconds of broadcast
         time_start = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
