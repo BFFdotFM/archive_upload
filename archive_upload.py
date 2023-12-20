@@ -276,8 +276,8 @@ def upload_files():
         # set file to public
         logger.debug("Setting file to public access")
         response = client.put_object_acl(ACL='public-read', #ACL level
-			Bucket=s3_bucket_name, # Bucket/name of space
-			Key=broadcast['s3_object_name']) #name for remote file
+                        Bucket=s3_bucket_name, # Bucket/name of space
+                        Key=broadcast['s3_object_name']) #name for remote file
 
         # Update creek
         archive_url = "api/media/add_archive?key="
